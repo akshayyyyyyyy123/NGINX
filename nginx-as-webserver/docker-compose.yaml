@@ -1,0 +1,10 @@
+version: '3.8'
+
+# define the services to be built
+services:
+  nginx-as-webserver:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "3002:80"  
