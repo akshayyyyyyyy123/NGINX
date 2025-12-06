@@ -128,3 +128,100 @@ So matching workers = CPU cores = maximum parallel performance.
 - If you want to save logs to specific files, you need to update the log paths in nginx.conf file.
 - By default, worker_processes is set to auto, which means NGINX creates one worker process per CPU core.
 - Run ```nginx -t``` to test if the nginx.conf syntax and configuration is correct.
+
+---
+
+## 📌 Why logs were still going to stdout?
+- Even though your `nginx.conf` had:
+  ```bash
+  access_log /var/log/nginx/access.log;
+  error_log  /var/log/nginx/error.log;
+  ```
+  the NGINX Docker image overrides this by default. Inside the official `nginx:alpine` image:
+  ```bash
+  /var/log/nginx/access.log → symlink → /dev/stdout
+  /var/log/nginx/error.log  → symlink → /dev/stderr
+  ```
+  So NGINX writes to:
+  
+  👉 stdout → seen in docker logs
+  
+  👉 stderr → error logs also in docker logs
+
+- This happens even if your config says to use actual files, because the symlinks redirect the output.
+
+- Inorder to fix this issue, we need to remove those symlinks and create real files and then NGINX finally writes logs inside the container not to stdout.
+    ```bash
+    RUN rm -f /var/log/nginx/access.log \
+    && rm -f /var/log/nginx/error.log \
+    && touch /var/log/nginx/access.log \
+    && touch /var/log/nginx/error.log
+    ```
+## 📜 Docker Compose
+```dockerfile
+version: '3.8'
+
+# define the services to be built
+services:
+  nginx-as-webserver:
+    build:
+      context: .
+      dockerfile: nginx.Dockerfile
+    ports:
+      - "3002:80"
+```
+
+## 📜 Dockerfile
+```dockerfile
+# pull the nginx alpine base image
+FROM nginx:alpine
+
+# remove the default nginx log files as base image has default symlink which directs the output logs to /dev/stdout and /dev/stderr
+RUN rm -f /var/log/nginx/*.log && \
+    mkdir -p /var/log/nginx && \
+    touch /var/log/nginx/access.log && \
+    touch /var/log/nginx/error.log
+
+# copy the application code to nginx html directory
+COPY site/ /usr/share/nginx/html/
+
+# copy the custom nginx conf file to the nginx conf directory
+COPY nginx.conf /etc/nginx/nginx.conf
+
+# start nginx in foreground mode
+CMD ["nginx", "-g", "daemon off;"]
+```
+
+## 🛠️ nginx.conf
+```bash
+user  nginx;
+worker_processes  2;
+
+error_log  /var/log/nginx/error.log notice;
+pid        /run/nginx.pid;
+
+events {
+    worker_connections  1024;
+}
+
+http {
+    include       /etc/nginx/mime.types;
+    default_type  application/octet-stream;
+
+    log_format  main  '$remote_addr - $remote_user [$time_local] "$request" '
+                      '$status $body_bytes_sent "$http_referer" '
+                      '"$http_user_agent" "$http_x_forwarded_for"';
+
+    access_log  /var/log/nginx/access.log main;
+    error_log   /var/log/nginx/error.log;
+
+    sendfile        on;
+    keepalive_timeout  65;
+
+    include /etc/nginx/conf.d/*.conf;
+}
+```
+
+## 👉 Output
+<img width="1707" height="753" alt="Screenshot 2025-12-06 at 3 40 29 PM" src="https://github.com/user-attachments/assets/64d4d364-7ff2-4137-b072-e27f2873a3b7" />
+
