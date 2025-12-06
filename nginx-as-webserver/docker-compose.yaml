@@ -5,6 +5,6 @@ services:
   nginx-as-webserver:
     build:
       context: .
-      dockerfile: Dockerfile
+      dockerfile: nginx.Dockerfile
     ports:
       - "3002:80"  
