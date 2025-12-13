@@ -1,0 +1,38 @@
+version: "3.9"
+
+# define the list of services
+services:
+  # reverse-proxy service
+  reverse-proxy:
+    build:
+      context: .
+      dockerfile: reverseProxy.Dockerfile
+    ports:
+      - "1111:80"  
+    depends_on:
+      - app1
+      - app2
+    container_name: reverse-proxy 
+
+
+  # backend app1 service
+  app1:
+    build:
+      context: .
+      dockerfile: app.Dockerfile
+      args:
+        APP_PATH: backend-app1  
+    ports:
+      - "3001"    
+    container_name: app1
+
+  # backend app2 service
+  app2:
+    build:
+      context: .
+      dockerfile: app.Dockerfile
+      args:
+        APP_PATH: backend-app2
+    ports:
+      - "3002"    
+    container_name: app2
