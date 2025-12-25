@@ -1,0 +1,21 @@
+version: "3.9"
+
+services:
+  # nginx as reverse-proxy service
+  reverse-proxy:
+    build:
+      context: .
+      dockerfile: nginx.Dockerfile
+    ports:
+      - "443:443"
+    volumes:
+      - ./nginx/ssl/cert.pem:/etc/nginx/ssl/cert.pem:ro
+      - ./nginx/ssl/key.pem:/etc/nginx/ssl/key.pem:ro
+    depends_on:
+      - app-server
+
+  # backend server
+  app-server:
+    build:
+      context: .
+      dockerfile: app.Dockerfile
